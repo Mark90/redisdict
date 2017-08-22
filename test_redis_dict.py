@@ -59,6 +59,12 @@ class TestRedisDict(unittest.TestCase):
 
         self.assertEqual(self.r['foobar'], 'barbar')
 
+    def test_set_and_get_intkey(self):
+        """Test setting an integer key and retrieving it."""
+        self.r[1] = 'foobar'
+
+        self.assertEqual(self.r[1], 'foobar')
+
     def test_set_none_and_get_none(self):
         """Test setting a key with no value and retrieving it."""
         self.r['foobar'] = None
