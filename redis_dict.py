@@ -19,28 +19,36 @@ class RedisDict(object):
             del kwargs['expire']
 
         self.redis = StrictRedis(*args, decode_responses=True, **kwargs)
-        self.sentinel_none = '<META __None__ 9cab>'
+        self.to_sentinel = {
+            None: '<META __None__ 9cab>',
+            True: '<META __True__ 9cab>',
+            False: '<META __False__ 9cab>',
+        }
+        self.from_sentinel = {v: k for k, v in self.to_sentinel.items()}
 
     def _raw_get_item(self, k):
         return self.redis.get(k)
 
     def _get_item(self, k):
+        k = self.to_sentinel[k] if any([k is i for i in self.to_sentinel]) else k
         result = self._raw_get_item(self.namespace + str(k))
         return result
 
     def __getitem__(self, k):
+        k = self.to_sentinel[k] if any([k is i for i in self.to_sentinel]) else k
         result = self._get_item(k)
         if result is None:
             raise KeyError
 
-        return result if result != self.sentinel_none else None
+        return self.from_sentinel.get(result, result)
 
     def __setitem__(self, k, v):
-        if v is None:
-            v = self.sentinel_none
+        k = self.to_sentinel[k] if any([k is i for i in self.to_sentinel]) else k
+        v = self.to_sentinel[v] if any([v is i for i in self.to_sentinel]) else v
         self.redis.set(self.namespace + str(k), v, ex=self.expire)
 
     def __delitem__(self, k):
+        k = self.to_sentinel[k] if any([k is i for i in self.to_sentinel]) else k
         self.redis.delete(self.namespace + str(k))
 
     def __contains__(self, k):
@@ -56,18 +64,23 @@ class RedisDict(object):
         return len(self._keys())
 
     def _scan_keys(self, search_term=''):
+        search_term = self.to_sentinel[search_term] if any(
+            [search_term is i for i in self.to_sentinel]) else search_term
         return self.redis.scan(match=self.namespace + str(search_term) + '*')
 
     def _keys(self, search_term=''):
         return self._scan_keys(search_term)[1]
 
-    def keys(self):
+    def _transform_key(self, key):
         to_rm = len(self.namespace)
-        return [item[to_rm:] for item in self._keys()]
+        key = key[to_rm:]
+        return self.from_sentinel.get(key, key)
+
+    def keys(self):
+        return [self._transform_key(item) for item in self._keys()]
 
     def to_dict(self):
-        to_rm = len(self.namespace)
-        return {item[to_rm:]: self._raw_get_item(item) for item in self._keys()}
+        return {self._transform_key(item): self._raw_get_item(item) for item in self._keys()}
 
     def chain_set(self, iterable, v):
         self[':'.join(iterable)] = v
@@ -113,8 +126,7 @@ class RedisDict(object):
         keys = self._keys(key)
         if len(keys) == 0:
             return {}
-        to_rm = len(self.namespace)
-        return dict(zip([i[to_rm:] for i in keys], self.redis.mget(keys)))
+        return dict(zip([self._transform_key(i) for i in keys], self.redis.mget(keys)))
 
     def multi_del(self, key):
         keys = self._keys(key)
@@ -127,7 +139,6 @@ class RedisDict(object):
 
 
 class RedisListIterator(object):
-
     def __init__(self, redis_instance, key, start=0, end=-1):
         """Creates a redis list iterator.
 
@@ -179,6 +190,7 @@ class RedisList(object):
 
     def __iter__(self):
         return RedisListIterator(self.redis, self.key)
+
 
 if __name__ == '__main__':
     import time
@@ -259,8 +271,7 @@ if __name__ == '__main__':
 
     assert len(dd) == 1
 
-    del(dd['one_item'])
+    del (dd['one_item'])
     assert len(dd) == 0
 
     print('all is well')
-
