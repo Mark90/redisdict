@@ -25,7 +25,7 @@ class RedisDict(object):
         return self.redis.get(k)
 
     def _get_item(self, k):
-        result = self._raw_get_item(self.namespace + k)
+        result = self._raw_get_item(self.namespace + str(k))
         return result
 
     def __getitem__(self, k):
@@ -38,10 +38,10 @@ class RedisDict(object):
     def __setitem__(self, k, v):
         if v is None:
             v = self.sentinel_none
-        self.redis.set(self.namespace + k, v, ex=self.expire)
+        self.redis.set(self.namespace + str(k), v, ex=self.expire)
 
     def __delitem__(self, k):
-        self.redis.delete(self.namespace + k)
+        self.redis.delete(self.namespace + str(k))
 
     def __contains__(self, k):
         return self._get_item(k) is not None
@@ -56,7 +56,7 @@ class RedisDict(object):
         return len(self._keys())
 
     def _scan_keys(self, search_term=''):
-        return self.redis.scan(match=self.namespace + search_term + '*')
+        return self.redis.scan(match=self.namespace + str(search_term) + '*')
 
     def _keys(self, search_term=''):
         return self._scan_keys(search_term)[1]
