@@ -44,6 +44,18 @@ class TestRedisDict(unittest.TestCase):
 
         self.assertEqual(keys, [])
 
+    def test_keys_nonempty(self):
+        """Calling RedisDict.keys() with various keys set should return these keys unaltered."""
+        self.r['foo'] = 'bar'
+        self.r[None] = 'baz'
+        self.r[True] = 'baq'
+        self.r[False] = 'bax'
+
+        expected_keys = sorted(['foo', None, True, False])
+        actual_keys = sorted(self.r.keys())
+
+        self.assertEqual(expected_keys, actual_keys)
+
     def test_set_namespace(self):
         """Test that RedisDict keys are inserted with the given namespace."""
         self.r['foo'] = 'bar'
@@ -65,11 +77,31 @@ class TestRedisDict(unittest.TestCase):
 
         self.assertEqual(self.r[1], 'foobar')
 
+    def test_set_and_get_nonekey(self):
+        """Test setting a None key and retrieving it."""
+        self.r[None] = 'foobar'
+
+        self.assertEqual(self.r[None], 'foobar')
+
+    def test_set_and_get_boolkey(self):
+        """Test setting a boolean key and retrieving it."""
+        self.r[True] = 'foobar1'
+        self.r[False] = 'foobar2'
+
+        self.assertEqual(self.r[True], 'foobar1')
+        self.assertEqual(self.r[False], 'foobar2')
+
     def test_set_none_and_get_none(self):
-        """Test setting a key with no value and retrieving it."""
+        """Test setting a key with None as value and retrieving it."""
         self.r['foobar'] = None
 
         self.assertIsNone(self.r['foobar'])
+
+    def test_set_bool_and_get_bool(self):
+        """Test setting a key with no value and retrieving it."""
+        self.r['foobar'] = True
+
+        self.assertEqual(self.r['foobar'], True)
 
     def test_set_and_get_multiple(self):
         """Test setting two different keys with two different values, and reading them."""
@@ -100,6 +132,24 @@ class TestRedisDict(unittest.TestCase):
         """Tests the __contains__ function with keys set."""
         self.r['foobar'] = 'barbar'
         self.assertTrue('foobar' in self.r)
+
+    def test_contains_nonekey_notset(self):
+        """Tests the __contains__ function with key None when it's not set."""
+        self.assertFalse(None in self.r)
+
+    def test_contains_nonekey_isset(self):
+        """Tests the __contains__ function with key None when it's set."""
+        self.r[None] = 'foobar'
+        self.assertTrue(None in self.r)
+
+    def test_contains_boolkey_notset(self):
+        """Tests the __contains__ function with key True when it's not set."""
+        self.assertFalse(True in self.r)
+
+    def test_contains_boolkey_isset(self):
+        """Tests the __contains__ function with key True when it's set."""
+        self.r[True] = 'foobar'
+        self.assertTrue(True in self.r)
 
     def test_repr_empty(self):
         """Tests the __repr__ function with no keys set."""
@@ -228,11 +278,6 @@ class TestRedisDict(unittest.TestCase):
         # TODO made the assumption that iterating the redisdict should return keys, like a normal dict
         for key in self.r:
             self.assertEqual(self.r[key], key_values[key])
-
-    def test_multi_get_with_key_none(self):
-        """Tests that multi_get with key None raises TypeError."""
-        with self.assertRaises(TypeError):
-            self.r.multi_get(None)
 
     def test_multi_get_empty(self):
         """Tests the multi_get function with no keys set."""
